@@ -98,6 +98,8 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     uint256 private s_feePrecision;
     uint256 private s_flashLoanFee; // 0.3% ETH fee
 
+    // q what does this mapping represent ? does it make one flashlona ocurr for a token at one time , so multiple users
+    // take out multiple flashloan for the same token?
     mapping(IERC20 token => bool currentlyFlashLoaning) private s_currentlyFlashLoaning;
 
     /*//////////////////////////////////////////////////////////////
@@ -202,7 +204,6 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     {
         AssetToken assetToken = s_tokenToAssetToken[token];
         uint256 startingBalance = IERC20(token).balanceOf(address(assetToken));
-
         if (amount > startingBalance) {
             revert ThunderLoan__NotEnoughTokenBalance(startingBalance, amount);
         }
@@ -232,7 +233,8 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
                 )
             )
         );
-
+        // what if the ending balance was madeby another LP which pushed token asset up?
+        // are there was to  sure you make sure that the receiver has paid back the flashloan and fees
         uint256 endingBalance = token.balanceOf(address(assetToken));
         if (endingBalance < startingBalance + fee) {
             revert ThunderLoan__NotPaidBack(startingBalance + fee, endingBalance);
@@ -260,6 +262,9 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
             emit AllowedTokenSet(token, assetToken, allowed);
             return assetToken;
         } else {
+            // i wow  , the owner can delete a  token asset just like that? what if there are funds in the contract
+            // LP deposit holding the assets will be foever lock in the contract.
+
             AssetToken assetToken = s_tokenToAssetToken[token];
             delete s_tokenToAssetToken[token];
             emit AllowedTokenSet(token, assetToken, allowed);
@@ -279,6 +284,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         if (newFee > s_feePrecision) {
             revert ThunderLoan__BadNewFee();
         }
+        //i owner can change the fees and take out flashloan suitable to them
         s_flashLoanFee = newFee;
     }
 
@@ -302,5 +308,6 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         return s_feePrecision;
     }
 
+    // i owner can change the contract implemntation
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }
