@@ -22,6 +22,7 @@ contract OracleUpgradeable is Initializable {
     }
     // e wow , we are calling an external contract, possible renetracy attack
     // can the price be manipulated ?
+    // how about with token with differnt decimals values like USDC
 
     function getPriceInWeth(address token) public view returns (uint256) {
         address swapPoolOfToken = IPoolFactory(s_poolFactory).getPool(token); // e this is the external call

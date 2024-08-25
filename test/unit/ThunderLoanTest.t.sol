@@ -87,4 +87,51 @@ contract ThunderLoanTest is BaseTest {
         assertEq(mockFlashLoanReceiver.getBalanceDuring(), amountToBorrow + AMOUNT);
         assertEq(mockFlashLoanReceiver.getBalanceAfter(), AMOUNT - calculatedFee);
     }
+
+    ///////////////////////////////////////////////////////////////////////
+    //////////                    Audit POC                     //////////
+    ///////////////////////////////////////////////////////////////////////
+    function test_canRedeem() public setAllowedToken hasDeposits {
+        // in the hasDeposits modifier LP deposited ``DEPOSIT_AMOUNT`` of tokenA
+        AssetToken assetToken = thunderLoan.getAssetFromToken(tokenA);
+
+        uint256 startingAssetLP_BeforeFlashLoan = assetToken.balanceOf(liquidityProvider);
+        console.log("startingAssetLP_BeforeFlashLoan", startingAssetLP_BeforeFlashLoan);
+
+        uint256 startingLPTokenAmount =
+            (assetToken.getExchangeRate() * startingAssetLP_BeforeFlashLoan) / assetToken.EXCHANGE_RATE_PRECISION();
+        console.log("startingLPTokenAmount: ", startingLPTokenAmount);
+        uint256 amountToBorrow = AMOUNT * 10;
+        // uint256 calculatedFee = thunderLoan.getCalculatedFee(tokenA, amountToBorrow);
+        vm.startPrank(user);
+        tokenA.mint(address(mockFlashLoanReceiver), AMOUNT);
+        thunderLoan.flashloan(address(mockFlashLoanReceiver), tokenA, amountToBorrow, "");
+        vm.stopPrank();
+
+        //LP redeeming their deposits
+
+        vm.startPrank(liquidityProvider);
+        thunderLoan.redeem(tokenA, startingAssetLP_BeforeFlashLoan);
+        vm.stopPrank();
+        uint256 endingAssetLP_AfterFlashLoan = assetToken.balanceOf(liquidityProvider);
+        console.log("endingAssetLP_AfterFlashLoan   ", endingAssetLP_AfterFlashLoan);
+        assertEq(endingAssetLP_AfterFlashLoan, 0);
+        // expected token balance after the redeem
+        // since the exchange rate has increased after the flashloan we get the new exchange rate
+        uint256 expectedTokenAmount =
+            (assetToken.getExchangeRate() * endingAssetLP_AfterFlashLoan) / assetToken.EXCHANGE_RATE_PRECISION();
+        console.log("expectedTokenAmoun of LP: ", expectedTokenAmount);
+        // assertGt(expectedTokenAmount, DEPOSIT_AMOUNT);
+        assertEq(assetToken.balanceOf(liquidityProvider), 0);
+
+        // assertEq(mockFlashLoanReceiver.getBalanceDuring(), amountToBorrow + AMOUNT);
+        // assertEq(mockFlashLoanReceiver.getBalanceAfter(), AMOUNT - calculatedFee);
+    }
+
+    function test_LP_DepositandFailsToRedeem() public setAllowedToken hasDeposits {
+        vm.startPrank(liquidityProvider);
+        vm.expectRevert();
+        thunderLoan.redeem(tokenA, type(uint256).max);
+        vm.stopPrank();
+    }
 }

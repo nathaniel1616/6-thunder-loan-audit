@@ -162,6 +162,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         emit Deposit(msg.sender, token, amount);
         // this is an external call to the asset token ? any possible reentraccncy?
         assetToken.mint(msg.sender, mintAmount);
+        //  @audit-high we should not be updating the  fees
         uint256 calculatedFee = getCalculatedFee(token, amount);
         // q what does exchnage fees increse for each deposit, will fees decrese when the is a withdrawl of assets ?
         assetToken.updateExchangeRate(calculatedFee);
@@ -275,6 +276,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     // @audit info where is the natSpec
     function getCalculatedFee(IERC20 token, uint256 amount) public view returns (uint256 fee) {
         //slither-disable-next-line divide-before-multiply
+        // i this is where the t-swap oracle is been used
         uint256 valueOfBorrowedToken = (amount * getPriceInWeth(address(token))) / s_feePrecision;
         //slither-disable-next-line divide-before-multiply
         fee = (valueOfBorrowedToken * s_flashLoanFee) / s_feePrecision;
