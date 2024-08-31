@@ -10,6 +10,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 // read more on this on openzeppelin docs.
 // chech out on this youtube video  https://www.youtube.com/watch?v=XmxfB5JOt1Q&list=PL-XC037coXeXNDlUy6b132Ap97BlXKpGo&index=3
 contract OracleUpgradeable is Initializable {
+    error Oracle__CantBeZeroAddress();
+
     address private s_poolFactory;
 
     // @audit-info need to do zero address check
@@ -18,6 +20,9 @@ contract OracleUpgradeable is Initializable {
     }
 
     function __Oracle_init_unchained(address poolFactoryAddress) internal onlyInitializing {
+        if (poolFactoryAddress == address(0)) {
+            revert Oracle__CantBeZeroAddress();
+        }
         s_poolFactory = poolFactoryAddress;
     }
     // e wow , we are calling an external contract, possible renetracy attack

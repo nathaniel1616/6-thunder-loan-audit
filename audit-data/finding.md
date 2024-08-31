@@ -117,7 +117,7 @@ In the ```OracleManipuation.t.sol``` , check out the ```testFlashLoanOracle()```
 1. It is best to rely on  a ChainLink Price Oracle[https://docs.chain.link/docs/data-feeds/] to determine the price of Token A in Weth.(best practice).
 
 
-### [H-3] The ```s_flashLoanFee``` can change unexpectedly when the ```ThunderLoan``` contract is upgraded to ``ThunderLoanUpgraded`` 
+### [H-3] The ```s_flashLoanFee``` will change unexpectedly when the ```ThunderLoan``` contract is upgraded to ``ThunderLoanUpgraded`` 
 
 **Description:** 
 1. The storage slot in the ```ThunderLoan``` is different from the storage slot in the ```ThunderLoanUpgraded```. The proxy implementation of the first ```ThunderLoan``` contract will be be the stroage slot in the ERC1967 contract proxy contract and not in the ```ThunderLoan``` contract.
@@ -160,6 +160,150 @@ Note that, constants such `FEE_PRECISION` does not  have any storage slot , henc
 
 
 
+
+### [I-1] ThunderLoan.updateFlashLoanFee(uint256) (src/protocol/ThunderLoan.sol#286-292) should emit an event after the fee is updated
+
+
+
+**Impact:** This help to know that the fee is updated.
+
+**Recommended Mitigation:** Emit an event after fee is updated.
+
+```diff
++ event FlashLoanFeeUpdated(uint256 indexed newFee);
+    function updateFlashLoanFee(uint256 newFee) external onlyOwner {
+        if (newFee > s_feePrecision) {
+            revert ThunderLoan__BadNewFee();
+        }
+        s_flashLoanFee = newFee;
++       emit FlashLoanFeeUpdated(newFee);        
+    }
+```
+
+
+
+### [ L-2] Missing checks for `address(0)` when assigning values to address state variables
+
+Check for `address(0)` when assigning values to address state variables.
+
+<details><summary>1 Found Instances</summary>
+
+
+- Found in src/protocol/OracleUpgradeable.sol [Line: 21](src/protocol/OracleUpgradeable.sol#L21)
+
+    ```solidity
+            s_poolFactory = poolFactoryAddress;
+    ```
+
+</details>
+
+
+**Recommended Mitigation:** add checks for zero address
+```diff
++    error Oracle__CantBeZeroAddress();
+
+    function __Oracle_init_unchained(address poolFactoryAddress) internal onlyInitializing {
++        if (poolFactoryAddress == address(0)) {
++           revert Oracle__CantBeZeroAddress();
++        }
+        s_poolFactory = poolFactoryAddress;
+    }
+```
+
+### [L-3] `public` functions not used internally could be marked `external`
+
+Instead of marking a function as `public`, consider marking it as `external` if it is not used internally.
+
+<details><summary>6 Found Instances</summary>
+
+
+- Found in src/protocol/ThunderLoan.sol [Line: 246](src/protocol/ThunderLoan.sol#L246)
+
+    ```solidity
+        function repay(IERC20 token, uint256 amount) public {
+    ```
+
+- Found in src/protocol/ThunderLoan.sol [Line: 298](src/protocol/ThunderLoan.sol#L298)
+
+    ```solidity
+        function getAssetFromToken(IERC20 token) public view returns (AssetToken) {
+    ```
+
+- Found in src/protocol/ThunderLoan.sol [Line: 302](src/protocol/ThunderLoan.sol#L302)
+
+    ```solidity
+        function isCurrentlyFlashLoaning(IERC20 token) public view returns (bool) {
+    ```
+
+- Found in src/upgradedProtocol/ThunderLoanUpgraded.sol [Line: 234](src/upgradedProtocol/ThunderLoanUpgraded.sol#L234)
+
+    ```solidity
+        function repay(IERC20 token, uint256 amount) public {
+    ```
+
+- Found in src/upgradedProtocol/ThunderLoanUpgraded.sol [Line: 279](src/upgradedProtocol/ThunderLoanUpgraded.sol#L279)
+
+    ```solidity
+        function getAssetFromToken(IERC20 token) public view returns (AssetToken) {
+    ```
+
+- Found in src/upgradedProtocol/ThunderLoanUpgraded.sol [Line: 283](src/upgradedProtocol/ThunderLoanUpgraded.sol#L283)
+
+    ```solidity
+        function isCurrentlyFlashLoaning(IERC20 token) public view returns (bool) {
+    ```
+
+</details>
+
+**Recommended Mitigation:** Change the public function to external
+
+## L-7: Unused Custom Error in `ThunderLoan` and `ThunderLoanUpgraded` contracts	
+
+it is recommended that the definition be removed when custom error is unused
+
+<details><summary>2 Found Instances</summary>
+
+
+- Found in src/protocol/ThunderLoan.sol [Line: 85](src/protocol/ThunderLoan.sol#L85)
+
+    ```solidity
+        error ThunderLoan__ExhangeRateCanOnlyIncrease();
+    ```
+
+- Found in src/upgradedProtocol/ThunderLoanUpgraded.sol [Line: 84](src/upgradedProtocol/ThunderLoanUpgraded.sol#L84)
+
+    ```solidity
+        error ThunderLoan__ExhangeRateCanOnlyIncrease();
+    ```
+
+</details>
+
+**Recommended Mitigation:** In ``ThunderLoan`` and ``ThunderLoanUpgraded`` contracts, remove unused error
+
+```diff
+-    error ThunderLoan__ExhangeRateCanOnlyIncrease();
+```
+
+
+### [S-#] Used Imports in IThunderLoan.sol 
+
+**Description:** `import { IThunderLoan } from "./IThunderLoan.sol";` is never used in the actual contract in `./src` directory and should be removed.
+the import is used in `test` contracts. 
+
+**Impact:** contract for deployment should not be reduncant to save gas.
+
+
+**Recommended Mitigation:**
+In the `IFlashLoanReceiver.sol` contract, remove unused import
+```diff
+-    import { IThunderLoan } from "./IThunderLoan.sol";
+```
+
+then add in the `MockFlashLoanReceiver.sol` contract in `/test/mocks/` directory ,
+```diff
+- import { IFlashLoanReceiver, IThunderLoan } from "../../src/interfaces/IFlashLoanReceiver.sol";
++ import { IThunderLoan } from "../../src/interfaces/IThunderLoan.sol";
+```
 
 ### [S-#] TITLE (Root Cause + Impact)
 

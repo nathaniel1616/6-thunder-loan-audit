@@ -69,7 +69,6 @@ contract AssetToken is ERC20 {
     {
         i_thunderLoan = thunderLoan;
         i_underlying = underlying;
-        //q cant we set the exchange direclty as a strorage variable
         s_exchangeRate = STARTING_EXCHANGE_RATE;
     }
 

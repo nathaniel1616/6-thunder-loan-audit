@@ -137,11 +137,12 @@ contract ThunderLoanTest is BaseTest {
     }
 
     /////   Updgradable  storage collisions    ////
-
     function test_storageCollisionsAfterUpgrade() public {
         // s_flashLoanFee before contract upgrade
         uint256 feeBeforeUpgrade = thunderLoan.getFee();
         console.log("feeBeforeUpgrade", feeBeforeUpgrade);
+
+        /// the owner of the thunderLoan upgrades the contract
         vm.prank(thunderLoan.owner());
         ThunderLoanUpgraded thunderLoanUpgraded = new ThunderLoanUpgraded();
         thunderLoan.upgradeToAndCall(address(thunderLoanUpgraded), "");
