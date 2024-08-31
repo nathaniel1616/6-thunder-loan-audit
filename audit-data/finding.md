@@ -154,6 +154,7 @@ In the terminal  , `forge inspect ThunderLoanUpgraded storage`  , the ``s_flashL
 
 +    uint256 private emptySlot;    //expected empty storage slot 2 ,should not be  deleted in the contract
 +    uint256 private s_flashLoanFee;
++    uint256 public constant FEE_PRECISION = 1e18;
 ```
 Note that, constants such `FEE_PRECISION` does not  have any storage slot , hence we would create an empty storage for slot 2 called `emptySlot`.
 
