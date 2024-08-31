@@ -43,8 +43,9 @@ $forge test --mt test_LP_DepositandFailsToRedeem -vvvvv
 
 An expected revert occurs because the total balance of tokenA(which the the deposit made by the LP) in the `AssetToken` contract is `1e21` but updated exchangeRate increase the amount of Token A to `1.003e21` which is not avaible in the contract.
 
-**Recommended Mitigation:** should remove these lines
 
+
+**Recommended Mitigation:** should remove these lines
 ```diff
  function deposit(IERC20 token, uint256 amount) external revertIfZero(amount) revertIfNotAllowedToken(token) {
         AssetToken assetToken = s_tokenToAssetToken[token];
@@ -57,3 +58,61 @@ An expected revert occurs because the total balance of tokenA(which the the depo
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
     }
 ```
+
+
+### [S-#] ```ThunderLoan::s_flashLoanFee``` can be manipulated to reduce the fees during flashLoan .  This will reduce the expected fees the protocol makes on a flashloan
+
+**Description:** The  ```ThunderLoan::s_flashLoanFee``` can be manipuated to reduce it the expected fee on an amonut during flashloan. 
+1. The ```ThunderLoan::getCalculatedFee()``` function relys on TSwapPool as a price oracle to determine the price of Token A in Weth. The TSwapPool price can be manupilated when the a user swaper a large amount of TokenA to Weth . This  abundance of tokenA will lead to the reduction in the price of Token A relative to Weth. 
+1. Since the ```ThunderLoan``` relies on TSwapPool to determine the price  of Token A when calculating ```s_flashLoanFee```, the fee will be reduced when calculating  a new fee for a the flashloan.
+
+
+**Impact:** This will lead to a decrease in the expected ````s_flashLoanFee``` which accured by ThunderLoan.An attacker can manipulate this alot to reduce the  collatoralization of the protocol.
+
+**Proof of Concept:** 
+In a single block,
+1. A attacker swaps a large amoount of tokenA to Weth on the TSwapPool. (user  can use the flashloan from thunderLoan or other flashloan providers) This manulipulation decreases the price of Token A relative to Weth.
+2. the attacker then  takes a flashloan from thunderLoan at reduced fee
+
+<details>
+<Summary>  Code Here</Summary>
+In the ```OracleManipuation.t.sol``` , check out the ```testFlashLoanOracle()``` test function.
+
+
+```javascript
+ function testFlashLoanOracle() public setAllowedToken hasDeposits {
+        uint256 amountToBorrow = 50e18;
+        // fee for borrowing  100 TokenA
+        uint256 normalFee = thunderLoan.getCalculatedFee(tokenA, 100e18);
+
+        vm.startPrank(user);
+        flashLoanReceiver = new OracleFlashLoanReceiver(
+            address(thunderLoan), address(pool), address(weth), address(thunderLoan.getAssetFromToken(tokenA))
+        );
+        tokenA.mint(address(flashLoanReceiver), AMOUNT * 10);
+        // in the flashloan, we are borrowing 50 TokenA twice --> check the flashloan contract
+        thunderLoan.flashloan(address(flashLoanReceiver), tokenA, amountToBorrow, "");
+        vm.stopPrank();
+        uint256 attackfee = flashLoanReceiver.fee1() + flashLoanReceiver.fee2();
+        console.log("attackfee", attackfee);
+        console.log("normalFee", normalFee);
+        console.log("fee1,", flashLoanReceiver.fee1());
+        console.log("fee2,", flashLoanReceiver.fee2());
+
+        assert(attackfee < normalFee);
+          // also fee1 and fee2 are different yet the amount borrowed was the same (50e18)
+        assert(flashLoanReceiver.fee1() != flashLoanReceiver.fee2());
+    }
+```
+1. the ```OracleFlashLoanReceiver``` contract  in ``test/unit/audit/OracleFlashLoanReceiver.sol`` file  is the flashLoan receiver contract for the attacker
+1. In the terminal , run ``forge test --mt testFlashLoanOracle -vv``
+1. the attackFee(two flashloan calls each of 50 TokenA) is  less than the normal fee expected for 100 TokenA.
+1. Run `cast --from-wei [feeamount]` in the terminal, to determine them in eth , eg `cast --from-wei 148073705159559194`
+
+
+</details>
+
+
+**Recommended Mitigation:**  
+1. It is best to rely on  a ChainLink Price Oracle[https://docs.chain.link/docs/data-feeds/] to determine the price of Token A in Weth.(best practice).
+

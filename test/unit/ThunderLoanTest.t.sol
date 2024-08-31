@@ -5,6 +5,7 @@ import { Test, console } from "forge-std/Test.sol";
 import { BaseTest, ThunderLoan } from "./BaseTest.t.sol";
 import { AssetToken } from "../../src/protocol/AssetToken.sol";
 import { MockFlashLoanReceiver } from "../mocks/MockFlashLoanReceiver.sol";
+import { ThunderLoanUpgraded } from "../../src/upgradedProtocol/ThunderLoanUpgraded.sol";
 
 contract ThunderLoanTest is BaseTest {
     uint256 constant AMOUNT = 10e18;
@@ -133,5 +134,23 @@ contract ThunderLoanTest is BaseTest {
         vm.expectRevert();
         thunderLoan.redeem(tokenA, type(uint256).max);
         vm.stopPrank();
+    }
+
+    /////   Updgradable  storage collisions    ////
+
+    function test_storageCollisionsAfterUpgrade() public {
+        // s_flashLoanFee before contract upgrade
+        uint256 feeBeforeUpgrade = thunderLoan.getFee();
+        console.log("feeBeforeUpgrade", feeBeforeUpgrade);
+        vm.prank(thunderLoan.owner());
+        ThunderLoanUpgraded thunderLoanUpgraded = new ThunderLoanUpgraded();
+        thunderLoan.upgradeToAndCall(address(thunderLoanUpgraded), "");
+        vm.stopPrank();
+
+        // s_flashLoanFee after contract upgrade
+        uint256 feeAfterUpgrade = thunderLoan.getFee();
+        console.log("feeAfterUpgrade", feeAfterUpgrade);
+
+        assert(feeBeforeUpgrade != feeAfterUpgrade);
     }
 }
