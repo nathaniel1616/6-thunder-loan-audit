@@ -96,7 +96,8 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
     // The fee in WEI, it should have 18 decimals. Each flash loan takes a flat fee of the token price.
     // @audit-high storage slot has been swapped
     // FEE_PRECISION should come first before s_flashLoanFee
-    uint256 private s_feePrecision; // just an empy storage to reprevent storage collision
+    // uint256 private s_feePrecision; // just an empy storage to reprevent storage collision
+    uint256 private emptySlot;
     uint256 private s_flashLoanFee; // 0.3% ETH fee
     uint256 public constant FEE_PRECISION = 1e18;
 

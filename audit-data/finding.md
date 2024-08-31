@@ -60,7 +60,7 @@ An expected revert occurs because the total balance of tokenA(which the the depo
 ```
 
 
-### [S-#] ```ThunderLoan::s_flashLoanFee``` can be manipulated to reduce the fees during flashLoan .  This will reduce the expected fees the protocol makes on a flashloan
+### [H-2] ```ThunderLoan::s_flashLoanFee``` can be manipulated to reduce the fees during flashLoan .  This will reduce the expected fees the protocol makes on a flashloan
 
 **Description:** The  ```ThunderLoan::s_flashLoanFee``` can be manipuated to reduce it the expected fee on an amonut during flashloan. 
 1. The ```ThunderLoan::getCalculatedFee()``` function relys on TSwapPool as a price oracle to determine the price of Token A in Weth. The TSwapPool price can be manupilated when the a user swaper a large amount of TokenA to Weth . This  abundance of tokenA will lead to the reduction in the price of Token A relative to Weth. 
@@ -115,4 +115,58 @@ In the ```OracleManipuation.t.sol``` , check out the ```testFlashLoanOracle()```
 
 **Recommended Mitigation:**  
 1. It is best to rely on  a ChainLink Price Oracle[https://docs.chain.link/docs/data-feeds/] to determine the price of Token A in Weth.(best practice).
+
+
+### [H-3] The ```s_flashLoanFee``` can change unexpectedly when the ```ThunderLoan``` contract is upgraded to ``ThunderLoanUpgraded`` 
+
+**Description:** 
+1. The storage slot in the ```ThunderLoan``` is different from the storage slot in the ```ThunderLoanUpgraded```. The proxy implementation of the first ```ThunderLoan``` contract will be be the stroage slot in the ERC1967 contract proxy contract and not in the ```ThunderLoan``` contract.
+2. When the ```ThunderLoan``` contract is upgraded to ```ThunderLoanUpgraded```, the storage slot of the ERC1967 proxy  contract will match  to the storage slots in the ```ThunderLoanUpgraded```.
+
+In `ThunderLoan`,
+s_flashLoanFee comes second  (in storage slot- 3)
+```javascript
+   // The fee in WEI, it should have 18 decimals. Each flash loan takes a flat fee of the token price.
+    uint256 private s_feePrecision;
+    uint256 private s_flashLoanFee; // 0.3% ETH fee
+```
+In the `ThunderLoanUpgraded`,
+s_flashLoanFee comes first (in storage slot- 2)
+```javascript
+    uint256 private s_flashLoanFee; // 0.3% ETH fee
+    uint256 public constant FEE_PRECISION = 1e18;
+```
+**Impact:** This change will the position arrangement will change the amount of `s_flashLoanFee` leading to unexpected `s_flashLoanFee` prices. 
+
+**Proof of Concept:**
+1. Inspect the ThunderLoan storage loan of ```s_flashLoanFee```
+In the terminal  , `forge inspect ThunderLoan storage`  , the ``s_flashLoanFee`` storage slot will be 3
+2. Inspect the ThunderLoanUpgraded storage loan of ```s_flashLoanFee```
+In the terminal  , `forge inspect ThunderLoanUpgraded storage`  , the ``s_flashLoanFee`` storage slot will be 2
+
+**Recommended Mitigation:**
+1. ``ThunderLoanUpgraded`` storage slot should be the same as ``ThunderLoan`` storage slots. 
+2. In ``ThunderLoanUpgraded`` contract, 
+
+```diff
+-    uint256 private s_flashLoanFee; // 0.3% ETH fee
+-    uint256 public constant FEE_PRECISION = 1e18;
+
++    uint256 private emptySlot;    //expected empty storage slot 2 ,should not be  deleted in the contract
++    uint256 private s_flashLoanFee;
+```
+Note that, constants such `FEE_PRECISION` does not  have any storage slot , hence we would create an empty storage for slot 2 called `emptySlot`.
+
+
+
+
+### [S-#] TITLE (Root Cause + Impact)
+
+**Description:**
+
+**Impact:**
+
+**Proof of Concept:**
+
+**Recommended Mitigation:**
 
