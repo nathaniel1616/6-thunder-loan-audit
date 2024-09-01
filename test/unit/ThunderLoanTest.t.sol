@@ -92,7 +92,7 @@ contract ThunderLoanTest is BaseTest {
     ///////////////////////////////////////////////////////////////////////
     //////////                    Audit POC                     //////////
     ///////////////////////////////////////////////////////////////////////
-    function test_canRedeem() public setAllowedToken hasDeposits {
+    function test_cannotRedeem() public setAllowedToken hasDeposits {
         // in the hasDeposits modifier LP deposited ``DEPOSIT_AMOUNT`` of tokenA
         AssetToken assetToken = thunderLoan.getAssetFromToken(tokenA);
 
@@ -124,9 +124,6 @@ contract ThunderLoanTest is BaseTest {
         console.log("expectedTokenAmoun of LP: ", expectedTokenAmount);
         // assertGt(expectedTokenAmount, DEPOSIT_AMOUNT);
         assertEq(assetToken.balanceOf(liquidityProvider), 0);
-
-        // assertEq(mockFlashLoanReceiver.getBalanceDuring(), amountToBorrow + AMOUNT);
-        // assertEq(mockFlashLoanReceiver.getBalanceAfter(), AMOUNT - calculatedFee);
     }
 
     function test_LP_DepositandFailsToRedeem() public setAllowedToken hasDeposits {
